@@ -1,0 +1,35 @@
+import torch
+import numpy as np
+from d2l import torch as d2l
+from torch.utils import data
+#数据生成
+true_w = torch.tensor([2,-3.4])  # 真实权重
+true_b = 4.2  # 真实偏置
+features, labels = d2l.synthetic_data(true_w, true_b, 1000)  # 生成1000个样本
+
+def load_array(data_arrays, batch_size, is_train=True):
+    dataset = data.TensorDataset(*data_arrays)  # 封装为Dataset
+    return data.DataLoader(dataset, batch_size, shuffle=is_train)  # 创建迭代器
+
+batch_size = 10
+data_iter = load_array((features, labels), batch_size)
+# Model模型构建
+from torch import nn
+net = nn.Sequential(nn.Linear(2, 1))  # 单层线性网络
+net[0].weight.data.normal_(0, 0.01)  # 权重初始化~N(0,0.01)
+net[0].bias.data.fill_(0)  # 偏置初始化为0
+loss = nn.MSELoss()  # 均方误差损失
+trainer = torch.optim.SGD(net.parameters(), lr=0.03)  # 随机梯度下降
+#模型训练
+# Training
+num_epochs = 3
+for epoch in range(num_epochs):
+    for X, y in data_iter:  # 批量训练
+        l = loss(net(X), y)  # 前向计算
+        trainer.zero_grad()  # 梯度清零
+        l.backward()  # 反向传播
+        trainer.step()  # 参数更新
+
+    # 每个epoch后评估整体损失
+    l = loss(net(features), labels)
+    print(f'epoch {epoch + 1}, loss {l:f}')
