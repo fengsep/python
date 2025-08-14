@@ -1,35 +1,51 @@
-import torch
 import numpy as np
-from d2l import torch as d2l
+import torch
 from torch.utils import data
-#数据生成
-true_w = torch.tensor([2,-3.4])  # 真实权重
-true_b = 4.2  # 真实偏置
-features, labels = d2l.synthetic_data(true_w, true_b, 1000)  # 生成1000个样本
-
-def load_array(data_arrays, batch_size, is_train=True):
-    dataset = data.TensorDataset(*data_arrays)  # 封装为Dataset
-    return data.DataLoader(dataset, batch_size, shuffle=is_train)  # 创建迭代器
-
-batch_size = 10
-data_iter = load_array((features, labels), batch_size)
-# Model模型构建
+from d2l import torch as d2l
 from torch import nn
-net = nn.Sequential(nn.Linear(2, 1))  # 单层线性网络
-net[0].weight.data.normal_(0, 0.01)  # 权重初始化~N(0,0.01)
-net[0].bias.data.fill_(0)  # 偏置初始化为0
-loss = nn.MSELoss()  # 均方误差损失
-trainer = torch.optim.SGD(net.parameters(), lr=0.03)  # 随机梯度下降
-#模型训练
-# Training
-num_epochs = 3
+ 
+ 
+ 
+# 线性回归的简洁实现（使用深度学习框架提供的计算）；包括数据流水线、模型、损失函数和小批量随机梯度下降优化器
+# 1、人造数据集，使用线性模型参数 w = [2, -3.4]T、b = 4.2；得到features, labels
+true_w = torch.tensor([2, -3.4])
+true_b = 4.2
+features, labels = d2l.synthetic_data(true_w, true_b, 1000)
+ 
+def load_array(data_arrays, batch_size, is_train=True):
+    """构造一个Pytorch数据迭代"""
+    dataset = data.TensorDataset(*data_arrays)  # 得到数据集，*表示接受任意多个参数并将其放在一个元组中，拆包
+    return data.DataLoader(dataset, batch_size, shuffle=is_train)  # 加载数据集，shuffle表示是否随机打乱
+ 
+batch_size = 10
+data_iter = load_array(data_arrays=(features, labels), batch_size=batch_size)  # 把features, labels做成一个list传入到data.TensorDataset，得到数据集dataset
+ 
+print(next(iter(data_iter)))
+ 
+# 2、模型定义；'nn'是神经网络的缩写
+# （1）使用框架的预定义好的层
+net = nn.Sequential(nn.Linear(2, 1))  # 指定输入维度为2，输出维度为1
+ 
+# （2）初始化模型参数
+net[0].weight.data.normal_(0, 0.01)  # 就是对w初始化化为均值为0，方差为0.01的正态分布
+net[0].bias.data.fill_(0)  # 就是对b初始化为0
+ 
+# 3、计算均方误差使用的是MSELoss类，也称为 平方范数
+loss = nn.MSELoss()
+ 
+# 4、实例化SGD实例，优化器
+trainer = torch.optim.SGD(net.parameters(), lr=0.03)  # 传入参数、学习率
+ 
+# 5、训练过程
+# （1）超参数设置
+num_epochs = 3  # 整个数据扫三遍
+# （2）训练的实现大同小异，一般就是两层for循环：第一层是每一次对数据扫一遍；第二层是对于每一次拿出一个批量大小的X、y
 for epoch in range(num_epochs):
-    for X, y in data_iter:  # 批量训练
-        l = loss(net(X), y)  # 前向计算
-        trainer.zero_grad()  # 梯度清零
-        l.backward()  # 反向传播
-        trainer.step()  # 参数更新
-
-    # 每个epoch后评估整体损失
+    for X, y in data_iter:
+        l = loss(net(X), y)  # 把 X 放到模型里面做预测（net本身自己带了模型参数，所以不需要w、b再传入了）；把 预测的y 与 真实的y 做损失；得到的损失就是 一个批量大小的向量
+        trainer.zero_grad()  # 优化器梯度清0
+        l.backward()  # 求梯度，此处不用求sum，因为已经自动求完sum了
+        trainer.step()  # 调用step()函数，进行一次模型参数的更新
+    # 对数据扫完一边之后，评价一下进度，此时是不需要梯度的，
     l = loss(net(features), labels)
-    print(f'epoch {epoch + 1}, loss {l:f}')
+    print(f"epoch {epoch + 1}, loss {l:f}") # 打印评估的结果
